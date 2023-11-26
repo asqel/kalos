@@ -59,4 +59,8 @@ int event_len(kalos_event_t *events);
 
 void kalos_end();
 
+long long int kalos_get_time_ms();
+
+void kalos_sleep_ms(long long int time);
+
 #endif

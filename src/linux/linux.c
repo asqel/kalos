@@ -6,6 +6,7 @@
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
+#include <time.h>
 
 Display *kalos_display;
 Window kalos_window;
@@ -213,6 +214,10 @@ kalos_event_t *kalos_get_events(){
                         events = realloc(events, sizeof(kalos_event_t) * malloc_len);
                     }
                     events[events_len - 1].key[0] = key;
+                    events[events_len - 1].key[1] = 0;
+                    events[events_len - 1].key[2] = 0;
+                    events[events_len - 1].key[3] = 0;
+                    events[events_len - 1].key[4] = 0;
                     events[events_len - 1].is_pressed = event.type == KeyPress ? 3 : 4;
                 }
                 int old_state = event.type;
@@ -258,6 +263,13 @@ void kalos_end() {
     XFreeGC(kalos_display, kalos_gc_buffer);
     XDestroyWindow(kalos_display, kalos_window);
     XCloseDisplay(kalos_display);
+}
+
+long long int kalos_get_time_ms() {
+    struct timespec te;
+    clock_gettime(CLOCK_REALTIME, &te);
+    long long milliseconds = te.tv_sec * 1000LL + te.tv_nsec / 1000000LL;
+    return milliseconds;
 }
 
 
