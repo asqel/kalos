@@ -1,7 +1,7 @@
 #include "../../kalos.h"
 #ifdef _WIN32
 
-#include <Windows.h>
+#include <windows.h>
 #include <tchar.h>
 
 HWND kalos_window;
@@ -141,5 +141,19 @@ void kalos_end() {
     ReleaseDC(kalos_window, kalos_device_context);
     DestroyWindow(kalos_window);
 }
+
+
+
+void kalos_sleep_ms(long long int x) {
+    return;
+}
+
+kalos_event_t *kalos_get_events() {
+    kalos_event_t *e = malloc(sizeof(kalos_event_t));
+    e[0].is_pressed = 2;
+    return e;
+}
+
+
 
 #endif

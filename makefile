@@ -14,10 +14,13 @@ windows: common
 	del "out\kalos_windows.o"
 	del "out\common.o"
 
+
 test_linux: linux
-	gcc main.c -o test/main -Lout -l:kalos_linux.a -lX11 
+	gcc main.c -o test/main -Lout -l:kalos_linux.a -lX11
 	./test/main
 
 test_windows: windows
 	gcc main.c -o test/main.exe -Lout -l:kalos_windows.a -lgdi32
 	./test/main
+
+

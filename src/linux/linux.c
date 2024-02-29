@@ -163,7 +163,7 @@ int kalos_get_width() {
     return kalos_width;
 }
 
-kalos_event_t *kalos_get_events(){
+void kalos_update_events() {
     XEvent event;
 
     XWindowAttributes windowAttributes;
@@ -173,9 +173,6 @@ kalos_event_t *kalos_get_events(){
         __kalos_handle_window_resize(windowAttributes.width, windowAttributes.height);
 
     KeySym keysym;
-    kalos_event_t *events = malloc(sizeof(kalos_event_t) * 5);
-    int malloc_len = 10;
-    int events_len = 0;
     char buffer[5] = {0, 0, 0, 0, 0};
     while (XPending(kalos_display)) {
         XNextEvent(kalos_display, &event);
@@ -208,50 +205,28 @@ kalos_event_t *kalos_get_events(){
                 else if (keySym2 == XK_Alt_L || keySym2 == XK_Alt_R)
                     key = KEY_ALT;
                 if (key != -1) {
-                    events_len++;
-                    if (events_len > malloc_len) {
-                        malloc_len += 5;
-                        events = realloc(events, sizeof(kalos_event_t) * malloc_len);
-                    }
-                    events[events_len - 1].key[0] = key;
-                    events[events_len - 1].key[1] = 0;
-                    events[events_len - 1].key[2] = 0;
-                    events[events_len - 1].key[3] = 0;
-                    events[events_len - 1].key[4] = 0;
-                    events[events_len - 1].is_pressed = event.type == KeyPress ? 3 : 4;
+                    kalos_events_len++;
+                    kalos_events[kalos_events_len - 1].key[0] = key;
+                    kalos_events[kalos_events_len - 1].key[1] = 0;
+                    kalos_events[kalos_events_len - 1].key[2] = 0;
+                    kalos_events[kalos_events_len - 1].key[3] = 0;
+                    kalos_events[kalos_events_len - 1].key[4] = 0;
+                    kalos_events[kalos_events_len - 1].is_pressed = event.type == KeyPress ? 3 : 4;
                 }
                 int old_state = event.type;
                 event.type = KeyPress;
                 if (key == -1 && Xutf8LookupString(kalos_xic, &event.xkey, buffer, 5, &keysym, NULL) > 0) {
                     event.type = old_state;
-                    events_len++;
-                    if (events_len > malloc_len) {
-                        malloc_len += 5;
-                        events = realloc(events, sizeof(kalos_event_t) * malloc_len);
-                    }
+                    kalos_events_len++;
                     for(int i = 0; i < 5; i++)
-                        events[events_len - 1].key[i] = buffer[i];
-                    events[events_len - 1].is_pressed = event.type == KeyRelease ? 0 : 1;
+                        kalos_events[kalos_events_len - 1].key[i] = buffer[i];
+                    kalos_events[kalos_events_len - 1].is_pressed = event.type == KeyRelease ? 0 : 1;
                 }
                 break;
             default:
                 break;
         }
     }
-    events_len++;
-    events = realloc(events, sizeof(kalos_event_t) * events_len);
-    events[events_len - 1].is_pressed = 2;
-    return events;
-}
-
-void kalos_free_events(kalos_event_t *events) {
-    free(events);
-}
-
-int event_len(kalos_event_t *events) {
-    int i = 0;
-    for(i = 0; events[i].is_pressed != 2; i++);
-    return i;
 }
 
 void kalos_end() {
@@ -271,6 +246,11 @@ long long int kalos_get_time_ms() {
     long long milliseconds = te.tv_sec * 1000LL + te.tv_nsec / 1000000LL;
     return milliseconds;
 }
+
+//void kalos_sleep_ms(long long int x) {
+//    long long int end = x + kalos_get_time_ms();
+//    while (kalos_get_time_ms() < end) {;}
+//}
 
 
 #endif

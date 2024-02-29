@@ -27,6 +27,11 @@ typedef struct kalos_event_s{
 	// 4 :special_key_released (key[0] == key)(esc, shift...)
 }kalos_event_t;
 
+#define kalos_events_max_len 150
+
+extern kalos_event_t kalos_events[kalos_events_max_len];
+extern int kalos_events_len;
+
 int kalos_init();
 
 void kalos_show_window();
@@ -45,17 +50,11 @@ void kalos_draw_circle(int x, int y, int radius, unsigned char r, unsigned char 
 
 void kalos_draw_disk(int x, int y, int radius, unsigned char r, unsigned char g, unsigned char b);
 
-void __kalos_handle_window_resize(int new_width, int new_height);
-
 int kalos_get_height();
 
 int kalos_get_width();
 
-kalos_event_t *kalos_get_events();
-
-void kalos_free_events(kalos_event_t *events);
-
-int event_len(kalos_event_t *events);
+void kalos_update_events();
 
 void kalos_end();
 

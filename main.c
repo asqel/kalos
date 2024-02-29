@@ -10,16 +10,16 @@ int main(int argc, char const *argv[]){
 	int y = 0;
 	int end = 0;
 	while (!end) {
-		kalos_event_t *events = kalos_get_events();
-		for(int i = 0; events[i].is_pressed != 2; i++) {
-						if (events[i].is_pressed == 3) {
-				if (events[i].key[0] == KEY_ARROW_UP)
+		kalos_update_events();
+		for(int i = 0; kalos_events[i].is_pressed != 2; i++) {
+						if (kalos_events[i].is_pressed == 3) {
+				if (kalos_events[i].key[0] == KEY_ARROW_UP)
 					y--;
-				if (events[i].key[0] == KEY_ARROW_DOWN)
+				if (kalos_events[i].key[0] == KEY_ARROW_DOWN)
 					y++;
-				if (events[i].key[0] == KEY_ARROW_RIGHT)
+				if (kalos_events[i].key[0] == KEY_ARROW_RIGHT)
 					x++;
-				if (events[i].key[0] == KEY_ARROW_LEFT)
+				if (kalos_events[i].key[0] == KEY_ARROW_LEFT)
 					x--;
 			}
 		}
