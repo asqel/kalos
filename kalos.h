@@ -27,32 +27,51 @@ typedef struct kalos_event_s{
 	// 4 :special_key_released (key[0] == key)(esc, shift...)
 }kalos_event_t;
 
-#define kalos_events_max_len 150
+#define kalos_events_max_len 300
 
 extern kalos_event_t kalos_events[kalos_events_max_len];
 extern int kalos_events_len;
 
-int kalos_init();
+typedef struct kalos_pixel_s {
+	unsigned char r;
+	unsigned char g;
+	unsigned char b;
+	unsigned char a;
+}kalos_pixel_t;
 
-void kalos_show_window();
+typedef struct kalos_surface_s {
+	kalos_pixel_t *pixels;
+	int height;
+	int width;
+} kalos_surface_t;
+
+#define kalos_pixel_pos(x, y, surface) ((x) + (y) * (surface).width)
+
+
+int kalos_init();
 
 void kalos_update_window();
 
-void kalos_set_pixel(int x, int y, unsigned char r, unsigned char g, unsigned char b);
-
+//void kalos_set_pixel(int x, int y, unsigned char r, unsigned char g, unsigned char b);
 void kalos_fill_window(unsigned char r, unsigned char g, unsigned char b);
 
 void kalos_fill_rect(int x, int y, int h, int w, unsigned char r, unsigned char g, unsigned char b);
 
 void kalos_draw_line(int x1, int y1, int x2, int y2, unsigned char r, unsigned char g, unsigned char b);
 
-void kalos_draw_circle(int x, int y, int radius, unsigned char r, unsigned char g, unsigned char b);
-
 void kalos_draw_disk(int x, int y, int radius, unsigned char r, unsigned char g, unsigned char b);
+
+void kalos_draw_circle(int x, int y, int radius, unsigned char r, unsigned char g, unsigned char b);
 
 int kalos_get_height();
 
 int kalos_get_width();
+
+void kalos_set_height(int h);
+
+void kalos_set_width(int w);
+
+void kalos_set_dimensions(int w, int h);
 
 void kalos_update_events();
 
@@ -62,4 +81,24 @@ long long int kalos_get_time_ms();
 
 void kalos_sleep_ms(long long int time);
 
+int kalos_init();
+
+kalos_event_t kalos_oldes_event();
+
+
+//
+// here we define the set_pixels functions with a macro function if possible for speed
+// if not not possible define a macro that call a function
+// we also define things that is need by thoses functions
+#ifdef __linux__
+	#include <stdint.h>
+	extern int kalos_width;
+	extern int kalos_height;
+	extern char *kalos_buffer_ptr;
+	#define set_pixel_u32(x, y, col) ((x >= kalos_width|| y >= kalos_width) ? (0) : (((uint32_t *)kalos_buffer_ptr)[x + y * kalos_width] = col))
+	#define set_pixel_rgb(x, y, col) ((x >= kalos_width|| y >= kalos_width) ? (0) : (((char *)kalos_buffer_ptr)[x + y * kalos_width] = col))
+
 #endif
+
+#endif
+
