@@ -1,34 +1,33 @@
 #include "../../kalos.h"
 #include <stdlib.h>
 
-typedef struct {
-	unsigned char r;
-	unsigned char g;
-	unsigned char b;
-}_Pixel_t;
 
 int kalos_width = 400;
 int kalos_height = 400;
 
-_Pixel_t *buffer = NULL;
+char *buffer = NULL;
+uint32_t *fb = 0;
+uint32_t pitch = 0;
 
 #define _pixel_pos(x, y) (x + y * kalos_width)
 
 int kalos_init() {
-	buffer = malloc(kalos_height * kalos_width * sizeof(_Pixel_t));
+    fb = c_vesa_get_fb();
+    pitch = c_vesa_get_pitch();
+	buffer = malloc(kalos_height * kalos_width * sizeof(char) * 4);
 	for(int x = 0; x < kalos_width; x++) {
 		for(int y = 0; y < kalos_height; y++) {
-			buffer[_pixel_pos(x, y)] = (_Pixel_t){.r = 0, .g = 0, .b = 0};
+			buffer[_pixel_pos(x, y)] = 0;
 		}
 	}
 }
 
 void kalos_update_window() {
-
-}
-
-void kalos_set_pixel(int x, int y, unsigned char r, unsigned char g, unsigned char b)  {
-	buffer[_pixel_pos(x, y)] = (_Pixel_t){.r = r, .g = g, .b = b};
+    for(int x = 0; x < kalos_width; x++) {
+		for(int y = 0; y < kalos_height; y++) {
+			fb[x + y * pitch] = buffer[_pixel_pos(x, y)];
+		}
+	}
 }
 
 void kalos_fill_window(unsigned char r, unsigned char g, unsigned char b) {

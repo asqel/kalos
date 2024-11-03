@@ -86,19 +86,43 @@ int kalos_init();
 kalos_event_t kalos_oldes_event();
 
 
-//
-// here we define the set_pixels functions with a macro function if possible for speed
-// if not not possible define a macro that call a function
-// we also define things that is need by thoses functions
-#ifdef __linux__
+// here we define macros or variable (if their are not listed below, their are internals)
+/*
+macro functions:
+	their are defined as macro function for speed
+
+	set_pixel_u32(x, y, col)
+		set a pixel at (x, y) to the colour col in rgb hex (0xRRGGBB)
+
+*/
+#ifdef __profanOS__
+	#include <type.h>
+
+
+	extern int kalos_width;
+	extern int kalos_height;
+
+	extern char *buffer;
+	extern uint32_t *fb;
+	extern uint32_t pitch;
+	#define set_pixel_u32(x, y, col) ((x >= kalos_width|| y >= kalos_width) ? (0) : (((uint32_t *)buffer)[x + y * kalos_width] = col))
+	buffer[_pixel_pos(x, y)] = (_Pixel_t){.r = r, .g = g, .b = b};
+
+#elif __linux__
 	#include <stdint.h>
 	extern int kalos_width;
 	extern int kalos_height;
-	extern char *kalos_buffer_ptr;
-	#define set_pixel_u32(x, y, col) ((x >= kalos_width|| y >= kalos_width) ? (0) : (((uint32_t *)kalos_buffer_ptr)[x + y * kalos_width] = col))
-	#define set_pixel_rgb(x, y, col) ((x >= kalos_width|| y >= kalos_width) ? (0) : (((char *)kalos_buffer_ptr)[x + y * kalos_width] = col))
+	extern uint32_t *kalos_buffer_ptr;
+	#define set_pixel_u32(x, y, col) ((x >= kalos_width|| y >= kalos_width) ? (0) : ((kalos_buffer_ptr)[x + y * kalos_width] = col))
+
+#elif __WIN32
+
+#else
+#error "kalos unsuported for this os"
 
 #endif
+
+
 
 #endif
 

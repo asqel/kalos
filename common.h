@@ -10,4 +10,6 @@ char *kalos_read_file(char *path, int *file_size);
 
 #define kalos_min(a, b) (a < b ? a : b)
 
+#define kalos_max(a, b) (a > b ? a : b)
+
 #endif
