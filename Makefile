@@ -27,32 +27,29 @@ ifeq ($(OS),ProfanOS)
     SHARED_EXT := so
 endif
 
-# === Gestion des sources ===
-
 COMMON_SRC := $(wildcard src/common/*.c) $(wildcard src/common/*/*.c)
 OS_SRC := $(wildcard src/$(TARGET_OS)/*.c)
 SRC := $(COMMON_SRC) $(OS_SRC)
 OBJ := $(SRC:.c=.o)
 
-# === Cibles principales ===
+all: libkalos.a shared
 
-all: libkalos-$(TARGET_OS).a shared
-
-libkalos-$(TARGET_OS).a: $(OBJ)
+libkalos.a: $(OBJ)
 	ar rcs $@ $^
 
 shared: $(OBJ)
 ifneq ($(SHARED_EXT),none)
-	$(CC) -shared -o libkalos-$(TARGET_OS).$(SHARED_EXT) $^ $(LDFLAGS)
+	$(CC) -shared -o libkalos.$(SHARED_EXT) $^ $(LDFLAGS)
 endif
-
-# === Règle de compilation .o ===
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
-# === Nettoyage ===
-
 clean:
-	rm -f src/**/*.o libkalos-*.a libkalos-*.so libkalos-*.dll
+	rm -f src/**/*.o libkalos-*.a libkalos.so libkalos.dll
 
+test:
+	make -C ./test/
+
+
+.PHONY: all clean test shared

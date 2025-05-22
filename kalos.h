@@ -1,9 +1,16 @@
 #ifndef KALOS_H
 #define KALOS_H
 
-// Symbols prefixed with I should only be read/write by the lib
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Symbols prefixed with I should only be read/write by the lib (they are internal)
 
 #include <stdint.h>
+#ifndef NULL
+#define NULL ((void *)0)
+#endif
 
 #define KEY_ESC 1
 #define KEY_CTRL_L 2
@@ -14,14 +21,93 @@
 #define KEY_ARROW_LEFT 7
 #define KEY_ARROW_RIGHT 8
 #define KEY_ENTER 9
-#define KEY_ERASE 10
+#define KEY_BACKSPACE 10
 #define KEY_SHIFT 11
+#define KEY_DELETE 12
+#define KEY_INSERT 13
+#define KEY_PAGE_UP 14
+#define KEY_PAGE_DOWN 15
+#define KEY_HOME 16
+#define KEY_END 17
+#define KEY_F1 18
+#define KEY_F2 19
+#define KEY_F3 20
+#define KEY_F4 21
+#define KEY_F5 22
+#define KEY_F6 23
+#define KEY_F7 24
+#define KEY_F8 25
+#define KEY_F9 26
+#define KEY_F10 27
+#define KEY_F11 28
+#define KEY_F12 29
+#define KEY_CAPS_LOCK 30
+
+enum {
+	KALOS_K_TILDE = 1,
+	KALOS_K_1,
+	KALOS_K_2,
+	KALOS_K_3,
+	KALOS_K_4,
+	KALOS_K_5,
+	KALOS_K_6,
+	KALOS_K_7,
+	KALOS_K_8,
+	KALOS_K_9,
+	KALOS_K_0,
+	KALOS_K_MINUS,
+	KALOS_K_EQUAL,
+	KALOS_K_TAB,
+	KALOS_K_Q,
+	KALOS_K_W,
+	KALOS_K_E,
+	KALOS_K_R,
+	KALOS_K_T,
+	KALOS_K_Y,
+	KALOS_K_U,
+	KALOS_K_I,
+	KALOS_K_O,
+	KALOS_K_P,
+	KALOS_K_L_BRACKET,
+	KALOS_K_R_BRACKET,
+	KALOS_K_BACKSLASH,
+	KALOS_K_A,
+	KALOS_K_S,
+	KALOS_K_D,
+	KALOS_K_F,
+	KALOS_K_G,
+	KALOS_K_H,
+	KALOS_K_J,
+	KALOS_K_K,
+	KALOS_K_L,
+	KALOS_K_SEMI_COLON,
+	KALOS_K_QUOTE,
+	KALOS_K_Z,
+	KALOS_K_X,
+	KALOS_K_C,
+	KALOS_K_V,
+	KALOS_K_B,
+	KALOS_K_N,
+	KALOS_K_M,
+	KALOS_K_COMMA,
+	KALOS_K_PERIOD,
+	KALOS_K_SLASH,
+	KALOS_K_SPACE,
+};
+
+#define KALOS_EV_KEY_RELEASED 0
+#define KALOS_EV_KEY_PRESSED 1
+#define KALOS_EV_SPECIAL_KEY_PRESSED 2
+#define KALOS_EV_SPECIAL_KEY_RELEASED 3
+#define KALOS_EV_DIMENSIONS 4// when window resized
+#define KALOS_EV_QUIT 5
 
 typedef struct kalos_event_s{
-	char key[5];
-	char is_pressed; // 0 :key_released, 1 :key_pressed, 2 :end_of_events
-	// 3 :special_key_pressed (key[0] == key)(esc, shift...)
-	// 4 :special_key_released (key[0] == key)(esc, shift...)
+	char type;
+	union {
+		uint32_t key;
+		uint32_t special;
+	} val;
 }kalos_event_t;
 
 #define kalos_events_max_len 300
@@ -37,13 +123,11 @@ typedef struct kalos_surface_s {
 
 extern kalos_surface_t *I_kalos_win_buffer;
 
-void I_kalos_init();
+int I_kalos_init(int w, int h);
 void I_kalos_exit();
 void kalos_update_window();
-void kalos_set_height(int h);
-void kalos_set_width(int w);
-void kalos_set_dimensions(int w, int h);
 void kalos_update_events();
+int I_kalos_set_dimensions(int w, int h); // return 1 if window cannot be resized
 long long int kalos_get_time_ms();
 void kalos_sleep_ms(long long int time);
 
@@ -69,9 +153,9 @@ void kalos_sleep_ms(long long int time);
 // the functions should not be reimplemented by each OS
 
 // return NULL on error
-kalos_surface_t *kalos_init();
+kalos_surface_t *kalos_init(int w, int h);
 
-void kalos_end();
+void kalos_exit();
 
 void kalos_get_events(kalos_event_t **events, int *events_len);
 
@@ -90,8 +174,16 @@ kalos_surface_t *kalos_new_surface(int width, int height);
 void kalos_blit(kalos_surface_t *dest, kalos_surface_t *src, int x, int y);
 
 
-void I_kalos_set_event_len(int len);
+int I_kalos_append_event(kalos_event_t event); // 1 on error
 
+
+void kalos_set_height(int h);
+void kalos_set_width(int w);
+int kalos_set_dimensions(int w, int h); // 1 on error
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

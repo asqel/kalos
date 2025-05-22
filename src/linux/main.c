@@ -1,288 +1,187 @@
-#include "../../kalos.h"
-#define kalos_min(a, b) (a < b ? a : b)
-
+#include "kalos.h"
 #ifdef __linux__
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
-#include <X11/Xutil.h>
-#include <time.h>
 
-Display *kalos_display;
-Window kalos_window;
-XImage *kalos_buffer;
-char *kalos_buffer_ptr;
-int kalos_screen;
+static Display *I_Xdisplay = NULL;
+static Window I_Xwindow = {0};
+static int I_Xscreen = 0;
+static GC I_Xgc = {0};
 
-XIM kalos_xim;
-XIC kalos_xic;
+int I_kalos_init(int w, int h) {
+	I_Xdisplay = XOpenDisplay(NULL);
+	if (I_Xdisplay == NULL) {
+		return 1;
+	}
+	I_Xscreen = DefaultScreen(I_Xdisplay);
+	I_Xwindow = XCreateSimpleWindow(I_Xdisplay, RootWindow(I_Xdisplay, I_Xscreen), 0, 0, w, h, 1,
+		BlackPixel(I_Xdisplay, I_Xscreen), WhitePixel(I_Xdisplay, I_Xscreen));
+	XSelectInput(I_Xdisplay, I_Xwindow, ExposureMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask);
+	XMapWindow(I_Xdisplay, I_Xwindow);
+	I_Xgc = XCreateGC(I_Xdisplay, I_Xwindow, 0, NULL);
+	XSetForeground(I_Xdisplay, I_Xgc, BlackPixel(I_Xdisplay, I_Xscreen));
+	XSetBackground(I_Xdisplay, I_Xgc, WhitePixel(I_Xdisplay, I_Xscreen));
+	XFlush(I_Xdisplay);
+	return 0;
+}
 
-GC _window_gc;
-
-
-int kalos_width = 400;
-int kalos_height = 400;
-#define kalos_window_mask (KeyPressMask | KeyReleaseMask)
-
-
-int kalos_init() {
-    kalos_display = XOpenDisplay(NULL);
-    if (NULL == kalos_display)
-        return KALOS_INIT_FAIL;
-    kalos_screen = DefaultScreen(kalos_display);
-    kalos_window = XCreateSimpleWindow(kalos_display, RootWindow(kalos_display, kalos_screen), 0, 0,
-        kalos_width, kalos_height, 0, 0, WhitePixel(kalos_display, kalos_screen));
-    XSelectInput(kalos_display, kalos_window, kalos_window_mask);
-    kalos_buffer_ptr = malloc(kalos_width*kalos_height*4);
-    kalos_buffer = XCreateImage(kalos_display, DefaultVisual(kalos_display, DefaultScreen(kalos_display)), DefaultDepth(kalos_display, DefaultScreen(kalos_display)), ZPixmap, 0, kalos_buffer_ptr, kalos_width, kalos_height, 32, 0);
-    // display windows
-    XSelectInput(kalos_display, kalos_window, StructureNotifyMask);
-    XMapWindow(kalos_display, kalos_window);
-    XEvent e;
-    do {
-        XNextEvent(kalos_display, &e);
-    } while (e.type != MapNotify);
-    XSelectInput(kalos_display, kalos_window, kalos_window_mask);
-    XFlush(kalos_display);
-    _window_gc = XCreateGC(kalos_display, kalos_window, 0, NULL);
-    return KALOS_INIT_SUCCESS;
+void I_kalos_exit() {
+	if (I_Xdisplay) {
+		if (I_Xgc) XFreeGC(I_Xdisplay, I_Xgc);
+		if (I_Xwindow) XDestroyWindow(I_Xdisplay, I_Xwindow);
+		XCloseDisplay(I_Xdisplay);
+		I_Xdisplay = NULL;
+	}
 }
 
 void kalos_update_window() {
-    XPutImage(kalos_display, kalos_window, _window_gc, kalos_buffer, 0, 0, 0, 0, kalos_width, kalos_height);
+	if (I_kalos_win_buffer == NULL) return;
+	XImage *image = XCreateImage(I_Xdisplay, DefaultVisual(I_Xdisplay, I_Xscreen), 24, ZPixmap, 0,
+		(char *)I_kalos_win_buffer->pixels, I_kalos_win_buffer->I_width, I_kalos_win_buffer->I_height, 32, 0);
+	XPutImage(I_Xdisplay, I_Xwindow, I_Xgc, image, 0, 0, 0, 0,
+		I_kalos_win_buffer->I_width, I_kalos_win_buffer->I_height);
+	XFlush(I_Xdisplay);
+	image->data = NULL;
+	XDestroyImage(image);
 }
 
-void kalos_fill_window(unsigned char r, unsigned char g, unsigned char b) {
-    long int col = r<<16 | g << 8 | b;
-    uint32_t *ptr = (uint32_t *)kalos_buffer_ptr;
-    for (int i = 0; i < kalos_width; i++) {
-        for (int k = 0; k < kalos_height; k++) {
-            ptr[i+ k*kalos_width] = col;
-        }
-    }
+static uint32_t key_from_keysym_special(KeySym ks) {
+	switch (ks) {
+		case XK_Escape: return KEY_ESC;
+		case XK_Control_L: return KEY_CTRL_L;
+		case XK_Control_R: return KEY_CTRL_R;
+		case XK_Alt_L: case XK_Alt_R: return KEY_ALT;
+		case XK_Up: return KEY_ARROW_UP;
+		case XK_Down: return KEY_ARROW_DOWN;
+		case XK_Left: return KEY_ARROW_LEFT;
+		case XK_Right: return KEY_ARROW_RIGHT;
+		case XK_Return: return KEY_ENTER;
+		case XK_BackSpace: return KEY_BACKSPACE;
+		case XK_Shift_L: case XK_Shift_R: return KEY_SHIFT;
+		case XK_Delete: return KEY_DELETE;
+		case XK_Insert: return KEY_INSERT;
+		case XK_Page_Up: return KEY_PAGE_UP;
+		case XK_Page_Down: return KEY_PAGE_DOWN;
+		case XK_Home: return KEY_HOME;
+		case XK_End: return KEY_END;
+		case XK_F1: return KEY_F1;
+		case XK_F2: return KEY_F2;
+		case XK_F3: return KEY_F3;
+		case XK_F4: return KEY_F4;
+		case XK_F5: return KEY_F5;
+		case XK_F6: return KEY_F6;
+		case XK_F7: return KEY_F7;
+		case XK_F8: return KEY_F8;
+		case XK_F9: return KEY_F9;
+		case XK_F10: return KEY_F10;
+		case XK_F11: return KEY_F11;
+		case XK_F12: return KEY_F12;
+		case XK_Caps_Lock: return KEY_CAPS_LOCK;
+		default: return 0;
+	}
 }
 
-void kalos_fill_rect(int x, int y, int h, int w, unsigned char r, unsigned char g, unsigned char b) {
-    long int col = r<<16 | g << 8 | b;
-    uint32_t *ptr = (uint32_t *)kalos_buffer_ptr;
-    int w_end = kalos_min(w + x, kalos_width - 1);
-    int h_end = kalos_min(h + y, kalos_height - 1);
-    for (int i = x; i < w_end; i++) {
-        for (int k = y; k < h_end; k++) {
-            ptr[i + k*kalos_width] = col;
-        }
-    }
+static uint32_t key_from_keysym(KeySym ks) {
+	switch (ks) {
+		case XK_grave: return KALOS_K_TILDE;
+		case XK_1: return KALOS_K_1;
+		case XK_2: return KALOS_K_2;
+		case XK_3: return KALOS_K_3;
+		case XK_4: return KALOS_K_4;
+		case XK_5: return KALOS_K_5;
+		case XK_6: return KALOS_K_6;
+		case XK_7: return KALOS_K_7;
+		case XK_8: return KALOS_K_8;
+		case XK_9: return KALOS_K_9;
+		case XK_0: return KALOS_K_0;
+		case XK_minus: return KALOS_K_MINUS;
+		case XK_equal: return KALOS_K_EQUAL;
+		case XK_Tab: return KALOS_K_TAB;
+		case XK_q: return KALOS_K_Q;
+		case XK_w: return KALOS_K_W;
+		case XK_e: return KALOS_K_E;
+		case XK_r: return KALOS_K_R;
+		case XK_t: return KALOS_K_T;
+		case XK_y: return KALOS_K_Y;
+		case XK_u: return KALOS_K_U;
+		case XK_i: return KALOS_K_I;
+		case XK_o: return KALOS_K_O;
+		case XK_p: return KALOS_K_P;
+		case XK_bracketleft: return KALOS_K_L_BRACKET;
+		case XK_bracketright: return KALOS_K_R_BRACKET;
+		case XK_backslash: return KALOS_K_BACKSLASH;
+		case XK_a: return KALOS_K_A;
+		case XK_s: return KALOS_K_S;
+		case XK_d: return KALOS_K_D;
+		case XK_f: return KALOS_K_F;
+		case XK_g: return KALOS_K_G;
+		case XK_h: return KALOS_K_H;
+		case XK_j: return KALOS_K_J;
+		case XK_k: return KALOS_K_K;
+		case XK_l: return KALOS_K_L;
+		case XK_semicolon: return KALOS_K_SEMI_COLON;
+		case XK_apostrophe: return KALOS_K_QUOTE;
+		case XK_z: return KALOS_K_Z;
+		case XK_x: return KALOS_K_X;
+		case XK_c: return KALOS_K_C;
+		case XK_v: return KALOS_K_V;
+		case XK_b: return KALOS_K_B;
+		case XK_n: return KALOS_K_N;
+		case XK_m: return KALOS_K_M;
+		case XK_comma: return KALOS_K_COMMA;
+		case XK_period: return KALOS_K_PERIOD;
+		case XK_slash: return KALOS_K_SLASH;
+		case XK_space: return KALOS_K_SPACE;
+		default:
+			return 0;
+	}
 }
-
-void kalos_draw_line(int x0, int y0, int x1, int y1, unsigned char r, unsigned char g, unsigned char b) {
-    
-    x0 = kalos_min(x0, kalos_width - 1);
-    x1 = kalos_min(x1, kalos_width - 1);
-    y0 = kalos_min(y0, kalos_width - 1);
-    y1 = kalos_min(y1, kalos_width - 1);
-    uint32_t *ptr = (uint32_t *)kalos_buffer_ptr;
-
-    long int color = r<<16 | g << 8 | b;
-    int dx = x1 - x0;
-    int dy = y1 - y0;
-    int D = 2*dy - dx;
-    int y = y0;
-
-    if (x0 < x1) {
-        for (int x = x0; x < x1; x++) {
-            ptr[x + y*kalos_width] = color;
-            if (D > 0) {
-                y = y + 1;
-                D = D - 2*dx;
-            }
-            D = D + 2*dy;
-        }
-    }
-    else {
-        for (int x = x1 - 1; x >= x0; x--) {
-            ptr[x + y*kalos_width] = color;
-            if (D > 0) {
-                y = y + 1;
-                D = D - 2*dx;
-            }
-            D = D + 2*dy;
-        }
-    }
-        
-}
-
-void kalos_draw_disk(int x, int y, int radius, unsigned char r, unsigned char g, unsigned char b) {
-    //XColor color;
-    //color.red = r * 257;
-    //color.green = g * 257;
-    //color.blue = b * 257;
-    //color.flags = DoRed | DoGreen | DoBlue;
-//
-    //if (!XAllocColor(kalos_display, DefaultColormap(kalos_display, kalos_screen), &color)) {
-    //    XFreeGC(kalos_display, kalos_gc_buffer);
-    //    return ;
-    //}
-    //XSetForeground(kalos_display, kalos_gc_buffer, color.pixel);
-    //XFillArc(kalos_display, kalos_buffer, kalos_gc_buffer, x - radius, y - radius, 2 * radius, 2 * radius, 0, 360 * 64);
-}
-
-void kalos_draw_circle(int x, int y, int radius, unsigned char r, unsigned char g, unsigned char b) {
-    //XColor color;
-    //color.red = r * 257;
-    //color.green = g * 257;
-    //color.blue = b * 257;
-    //color.flags = DoRed | DoGreen | DoBlue;
-//
-    //if (!XAllocColor(kalos_display, DefaultColormap(kalos_display, kalos_screen), &color)) {
-    //    XFreeGC(kalos_display, kalos_gc_buffer);
-    //    return ;
-    //}
-    //XSetForeground(kalos_display, kalos_gc_buffer, color.pixel);
-    //XDrawArc(kalos_display, kalos_buffer, kalos_gc_buffer, x - radius, y - radius, 2 * radius, 2 * radius, 0, 360 * 64);
-}
-
-void __kalos_handle_window_resize(int new_width, int new_height) {
-
-    int old_width = kalos_width;
-    int old_height = kalos_height;
-    kalos_width = new_width;
-    kalos_height = new_height;
-    char *new_kalos_buffer_ptr = malloc(kalos_width * kalos_height * 4);
-    XImage *new_buffer = XCreateImage(kalos_display, DefaultVisual(kalos_display, DefaultScreen(kalos_display)), DefaultDepth(kalos_display, DefaultScreen(kalos_display)), ZPixmap, 0, new_kalos_buffer_ptr, kalos_width, kalos_height, 32, 0);
-    for (int x = 0; x < old_width; x++) {
-        for (int y = 0; y < old_height; y++) {
-            new_kalos_buffer_ptr[x + y *kalos_width] = kalos_buffer_ptr[x + y*old_width];
-        }
-    }
-    XDestroyImage(kalos_buffer);
-    kalos_buffer = new_buffer;
-    kalos_buffer_ptr = new_kalos_buffer_ptr;
-}
-
-int kalos_get_height() {
-    return kalos_height;
-}
-
-int kalos_get_width() {
-    return kalos_width;
-}
-
-void kalos_set_height(int h) {
-    XResizeWindow(kalos_display, kalos_window, kalos_width, h);
-    kalos_height = h;
-}
-
-void kalos_set_width(int w) {
-    XResizeWindow(kalos_display, kalos_window, w, kalos_height);
-    kalos_width = w;
-}
-void kalos_set_dimensions(int w, int h) {
-    XResizeWindow(kalos_display, kalos_window, w, h);
-    kalos_width = w;
-    kalos_height = h;
-}
-
-int _kalos_first_event_idx = 0;
 
 void kalos_update_events() {
-    _kalos_first_event_idx = 0;
-    kalos_events_len = 0;
-    XEvent event;
-
-    XWindowAttributes windowAttributes;
-    XGetWindowAttributes(kalos_display, kalos_window, &windowAttributes);
-    if (windowAttributes.width != kalos_width || windowAttributes.height != kalos_height)
-        __kalos_handle_window_resize(windowAttributes.width, windowAttributes.height);
-
-    KeySym keysym;
-    char buffer[5] = {0, 0, 0, 0, 0};
-    while (XPending(kalos_display)) {
-        XNextEvent(kalos_display, &event);
-        /* Gestion des événements */
-        switch (event.type) {
-            case KeyRelease:
-            case KeyPress:
-                KeySym keySym2 = XkbKeycodeToKeysym(kalos_display, event.xkey.keycode, 0, event.xkey.state & ShiftMask ? 1 : 0);
-                int key = -1;
-                if (keySym2 == XK_Shift_L || keySym2 == XK_Shift_R)
-                    key = KEY_SHIFT;
-                else if (keySym2 == XK_Up)
-                    key = KEY_ARROW_UP;
-                else if (keySym2 == XK_Down)
-                    key = KEY_ARROW_DOWN;
-                else if (keySym2 == XK_Left)
-                    key = KEY_ARROW_LEFT;
-                else if (keySym2 == XK_Right)
-                    key = KEY_ARROW_RIGHT;
-                else if (keySym2 == XK_Escape)
-                    key = KEY_ESC;
-                else if (keySym2 == XK_Control_L)
-                    key = KEY_CTRL_L;
-                else if (keySym2 == XK_Control_R)
-                    key = KEY_CTRL_R;
-                else if (keySym2 == XK_Return)
-                    key = KEY_ENTER;
-                else if (keySym2 == XK_BackSpace)
-                    key = KEY_ERASE;
-                else if (keySym2 == XK_Alt_L || keySym2 == XK_Alt_R)
-                    key = KEY_ALT;
-                if (key != -1) {
-                    kalos_events_len++;
-                    kalos_events[kalos_events_len - 1].key[0] = key;
-                    kalos_events[kalos_events_len - 1].key[1] = 0;
-                    kalos_events[kalos_events_len - 1].key[2] = 0;
-                    kalos_events[kalos_events_len - 1].key[3] = 0;
-                    kalos_events[kalos_events_len - 1].key[4] = 0;
-                    kalos_events[kalos_events_len - 1].is_pressed = event.type == KeyPress ? 3 : 4;
-                }
-                int old_state = event.type;
-                event.type = KeyPress;
-                if (key == -1 && Xutf8LookupString(kalos_xic, &event.xkey, buffer, 5, &keysym, NULL) > 0) {
-                    event.type = old_state;
-                    kalos_events_len++;
-                    for(int i = 0; i < 5; i++)
-                        kalos_events[kalos_events_len - 1].key[i] = buffer[i];
-                    kalos_events[kalos_events_len - 1].is_pressed = event.type == KeyRelease ? 0 : 1;
-                }
-                break;
-            default:
-                break;
-        }
-    }
+	if (I_kalos_win_buffer == NULL) return;
+	XEvent event;
+	kalos_events_len = 0;
+	while (XPending(I_Xdisplay)) {
+		XNextEvent(I_Xdisplay, &event);
+		if (event.type == KeyPress || event.type == KeyRelease) {
+			// check if was modified
+			kalos_event_t kalos_event = {0};
+			uint32_t special = key_from_keysym_special(XLookupKeysym(&event.xkey, 0));
+			if (special != 0) {
+				kalos_event.type = (event.type == KeyPress) ? KALOS_EV_SPECIAL_KEY_PRESSED : KALOS_EV_SPECIAL_KEY_RELEASED;
+				kalos_event.val.special = special;
+				I_kalos_append_event(kalos_event);
+			}
+			else {
+				kalos_event.type = (event.type == KeyPress) ? KALOS_EV_KEY_PRESSED : KALOS_EV_KEY_RELEASED;
+				kalos_event.val.key = key_from_keysym(XkbKeycodeToKeysym(I_Xdisplay, event.xkey.keycode, 0, 0));
+				if (kalos_event.val.key != 0)
+					I_kalos_append_event(kalos_event);
+			}
+		}
+		else if (event.type == ConfigureNotify) {
+			kalos_set_dimensions(event.xconfigure.width, event.xconfigure.height);
+			kalos_event_t kalos_event = {0};
+			kalos_event.type = KALOS_EV_DIMENSIONS;
+			I_kalos_append_event(kalos_event);
+		}
+		// check if the cross was clicked
+		else if (event.type == ClientMessage) {
+			if (event.xclient.data.l[0] == XInternAtom(I_Xdisplay, "WM_DELETE_WINDOW", False)) {
+				kalos_event_t kalos_event = {0};
+				kalos_event.type = KALOS_EV_QUIT;
+				I_kalos_append_event(kalos_event);
+			}
+		}
+	}
 }
 
-void kalos_end() {
-    XDestroyImage(kalos_buffer);
-
-    if (kalos_xic != NULL)
-        XDestroyIC(kalos_xic);
-    if (kalos_xim != NULL)
-        XCloseIM(kalos_xim);
-    XFreeGC(kalos_display, _window_gc);
-    XDestroyWindow(kalos_display, kalos_window);
-    XCloseDisplay(kalos_display);
+int I_kalos_set_dimensions(int w, int h) {
+	if (I_Xwindow == 0) return 1;
+	XResizeWindow(I_Xdisplay, I_Xwindow, w, h);
+	return 0;
 }
-
-long long int kalos_get_time_ms() {
-    struct timespec te;
-    clock_gettime(CLOCK_REALTIME, &te);
-    long long milliseconds = te.tv_sec * 1000LL + te.tv_nsec / 1000000LL;
-    return milliseconds;
-}
-
-/// @brief starts at index 0 and returns the event of the corresponding event and increment the index when update_event is called its index will be reset
-/// @return the "oldest" events
-kalos_event_t kalos_oldes_event() {
-    if (_kalos_first_event_idx < kalos_events_len) {
-        return kalos_events[_kalos_first_event_idx++];
-    }
-    kalos_event_t res;
-    res.is_pressed = 2;
-    return res;
-}
-
 
 #endif
